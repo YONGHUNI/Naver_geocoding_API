@@ -10,11 +10,11 @@ main <- function(){
     if(!exists("geocoding_naver", mode="function")) source("./src/geocode.R")
     
     # 깃허브 공개 예정이라 외부에서 read
-    API_credentials <- readLines("./data/secret/api_credential.txt")
+    API_credentials <- readLines("./data/secret/api_credential_me.txt")
     
     # 바로 문자열로 하나하나 지정해도 됨
-    id <- API_credentials[1]     #혹은, id <- "yourid"
-    secret <- API_credentials[2] #혹은, secret <- "yoursecret"
+    id <- API_credentials[1]     #혹은, id <- "your_id"
+    secret <- API_credentials[2] #혹은, secret <- "your_secret"
     
     # 샘플 데이터 생성
     # dat <- readxl::read_xlsx("./data/secret/250212.xlsx")
@@ -29,18 +29,17 @@ main <- function(){
                               api_key_id = id, api_key_secret = secret)
     
     
-    
     # 일반 코드
     result_seq <- geocoding_naver(df = dat, addr_colname = "법정동주소", 
                     api_key_id = id, api_key_secret = secret,multiprocessing = F)
     
     
     # 병렬 코드와 결과는 같음
-    identical(result,result1)
+    identical(result_par,result_seq)
     # [1] TRUE
     
     
-    # sample 저장
+    # sample 저장, 만약 큰 파일이라면 `data.table`과 같은 패키지 사용할 것
     write.csv(result_par,"./data/output/result_par.csv", fileEncoding = "cp949")
     write.csv(result_seq,"./data/output/result_seq.csv", fileEncoding = "cp949")
 
