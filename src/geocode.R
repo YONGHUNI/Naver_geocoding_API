@@ -1,13 +1,12 @@
 
 # 1. 병렬 처리를 위한 함수
-mp_init <- function(n_processes = parallel::detectCores(logical = F)  ){
+mp_init <- function(n_processes ){
     # 필요한 패키지 확인 및 로드
     require(doParallel)  
     
     
     # 논리적인 것을 제외한 코어 수 - 1개만큼 프로세스 생성
-    no_cores <- n_processes  
-    cl <- makeCluster(no_cores, type="PSOCK")  
+    cl <- makeCluster(n_processes, type="PSOCK")  
     
     # 설정 리턴        
     return(cl)
@@ -74,10 +73,19 @@ API_data_cleaner <- function(API_RESULT,ith_df){
     base::Encoding(result) <- "UTF-8"
     
     # 반환 형식이 XML이므로 XML을 R 자료형으로 변환
-    list <- XML::xmlToList(result)
+    lst <- tryCatch({
+        # xml 변환 시도해보고...
+        XML::xmlToList(result)
+        # 만약 에러가 난다면 i.e., xml이 깨져있다면
+    }, error = function(e){
+        # 빈 리스트(NULL 처리)를 lst에 선언
+        list()
+
+    })
+        
     
     # 만약 반환된 자료에 좌푯값이 없으면
-    if (base::is.null(x = list$addresses$x)){
+    if (base::is.null(x = lst$addresses$x)){
         
         
         # X, Y 좌표에 -9999999 할당, flag에 메시지 적재
@@ -89,8 +97,8 @@ API_data_cleaner <- function(API_RESULT,ith_df){
     } else {
         
         # 숫자형으로 변환 후 x, y 좌표 추출, flag에 성공 메시지 적재
-        x <- base::as.numeric(list$addresses$x)
-        y <- base::as.numeric(list$addresses$y)
+        x <- base::as.numeric(lst$addresses$x)
+        y <- base::as.numeric(lst$addresses$y)
         flag <- "NORMAL"
         
     }
@@ -158,6 +166,7 @@ geocoding_naver <- function(df, addr_colname, api_key_id, api_key_secret, multip
     # 필요한 패키지 확인 및 로드
     require(doParallel)
     require(httr)
+    #require(XML)
     
     
     
@@ -171,13 +180,15 @@ geocoding_naver <- function(df, addr_colname, api_key_id, api_key_secret, multip
     # 만약 병렬처리 여부가 참일 경우(기본 설정),
     if (multiprocessing) {
         
+        cat("par\n")
+        
         # 만약 주소의 수가 50개보다 적을 경우 다음의 메시지 표출
         # 주소의 수가 적을 경우 병렬 처리의 의미가 떨어질 수 있음을 경고
         if (length(addr_arr) < 50) cat("Warning: Multi-Processing can be more expensive... Consider not using it for small datasets.\n")
         
         # 1.에서 정의한 함수를 스케줄러에 등록함
-        cluster <- mp_init()
-        registerDoParallel(cluster)  
+        cl <- mp_init(detectCores() - 2)
+        registerDoParallel(cl)  
 
         # 병렬 처리를 위해 여러 child R session을 만드는데, 거기서 사용해야할 패키지 및 사용자 정의함수 명시
         pass_in_pkg <- c("httr","XML")
@@ -208,13 +219,13 @@ geocoding_naver <- function(df, addr_colname, api_key_id, api_key_secret, multip
         
         
         # 병렬처리 clean up - 사용한 child R 세션 정리
-        stopCluster(cluster)
+        stopCluster(cl)
         
         
     # 만약 병렬처리를 하지 않는다면,
     } else {
         
-        
+        cat("seq\n")
         # for loop 사용하는 것 외에는 위와 동일
         for (i in 1:length(addr_arr)) {
             
